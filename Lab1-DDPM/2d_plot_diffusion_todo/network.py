@@ -83,19 +83,22 @@ class SimpleNet(nn.Module):
 
         ######## TODO ########
         # DO NOT change the code outside this part.
+        time_embed_dim = dim_hids[0] # get time_emb
         self.MLP = nn.Sequential(
-            TimeEmbedding(hidden_size=dim_hids[0], frequency_embedding_size=256),
-            nn.Linear(dim_in, 128),
+            TimeEmbedding(hidden_size=time_embed_dim),
+            nn.Linear(time_embed_dim, time_embed_dim),
             nn.ReLU(),
         )
 
-        self.main_net = nn.Sequential(
-            nn.Linear(2 + 128, 256), # Input dim (2) + time_emb (128)
-            nn.ReLU(),
-            nn.Linear(256, 256),
-            nn.ReLU(),
-            nn.Linear(256, dim_out),
-        )
+        layers = []
+        current_dim = dim_in + time_embed_dim
+        for dim_hid in dim_hids:
+            layers.append(nn.Linear(current_dim, dim_hid))
+            layers.append(nn.ReLU())
+            current_dim = dim_hid
+        layers.append(nn.Linear(current_dim, dim_out))
+        
+        self.main_net = nn.Sequential(*layers)
         ######################
         
     def forward(self, x: torch.Tensor, t: torch.Tensor):
@@ -113,7 +116,7 @@ class SimpleNet(nn.Module):
         # x is (batch_size, 2)
         # t is (batch_size, 1)
         time_emb = self.MLP(t)
-        x = torch.cat((x, time_emb), dim=-1)
-        x = self.main_net(x)
+        x_t = torch.cat((x, time_emb), dim=-1)
+        x = self.main_net(x_t)
         ######################
         return x
