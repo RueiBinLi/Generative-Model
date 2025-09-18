@@ -149,8 +149,12 @@ class DiffusionModule(nn.Module):
         # DO NOT change the code outside this part.
         # sample x0 based on Algorithm 2 of DDPM paper.
         xt = torch.randn(shape).to(self.device)
-        x0_pred = None
-        
+        T = self.var_scheduler.num_train_timesteps
+
+        from tqdm import tqdm
+        for i in tqdm(reversed(range(0, T))):
+            xt = self.p_sample(xt, i)
+        x0_pred = xt
         ######################
         return x0_pred
 
