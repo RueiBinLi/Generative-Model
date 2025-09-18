@@ -121,13 +121,17 @@ class DiffusionModule(nn.Module):
         alpha_bar_t_prev = extract(self.var_scheduler.alphas_cumprod, t_prev, xt) # \bar{α}_{t-1}
 
         # 1. predict noise
-        
+        predicted_noise = self.network(xt, t)
         # 2. Posterior mean
-        
+        post_mean = 1 / torch.sqrt(alpha_t) * (xt - beta_t / torch.sqrt(1 - alpha_bar_t) * predicted_noise)
         # 3. Posterior variance
-        
+        if t[0].item > 0:
+            post_var = (1 - alpha_bar_t_prev) * beta_t / (1 - alpha_bar_t)
         # 4. Reverse step
-        
+            noise = torch.randn_like(xt)
+            x_t_prev = post_mean + torch.sqrt(post_var) * noise
+        else:
+            x_t_prev = post_mean
         #######################
         return x_t_prev
 
