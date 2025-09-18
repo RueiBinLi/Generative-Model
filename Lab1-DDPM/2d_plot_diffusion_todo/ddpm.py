@@ -242,12 +242,14 @@ class DiffusionModule(nn.Module):
             .long()
         )
         # 2) get GT noise, and use q_sample to get x_t
-        
+        noise = torch.randn_like(x0)
+        x_t = self.q_sample(x0=x0, t=t, noise=noise)
+
         # 3) predict noise 
-        
+        predicted_noise = self.network(x_t, t)
+
         # 4) MSE loss (eps, eps_pred)
-        
-        loss = None
+        loss = F.mse_loss(noise, predicted_noise)
 
         ######################
         return loss
