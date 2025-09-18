@@ -86,8 +86,10 @@ class DiffusionModule(nn.Module):
         ######## TODO ########
         # DO NOT change the code outside this part.
         # Compute xt.
-        alphas_prod_t = extract(self.var_scheduler.alphas_cumprod, t, x0)
-        xt = x0
+        alphas_prod_t = extract(self.var_scheduler.alphas_cumprod, t, x0) # select the timesteps t and reshape them to match x0's dim
+        sqrt_alphas_prod_t = torch.sqrt(alphas_prod_t)
+        sqrt_one_minus_alphas_prod_t = torch.sqrt(1.0 - alphas_prod_t)
+        xt = sqrt_alphas_prod_t * x0 + sqrt_one_minus_alphas_prod_t * noise
 
         #######################
 
