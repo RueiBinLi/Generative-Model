@@ -84,9 +84,9 @@ class SimpleNet(nn.Module):
         ######## TODO ########
         # DO NOT change the code outside this part.
         self.MLP = nn.Sequential(
-            TimeEmbedding(hidden_size=dim_hids, frequency_embedding_size=256),
+            TimeEmbedding(hidden_size=dim_hids[0], frequency_embedding_size=256),
             nn.Linear(dim_in, 128),
-            nn.ReLu(),
+            nn.ReLU(),
         )
 
         self.main_net = nn.Sequential(
