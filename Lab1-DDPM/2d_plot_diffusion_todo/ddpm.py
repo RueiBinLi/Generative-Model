@@ -125,13 +125,11 @@ class DiffusionModule(nn.Module):
         # 2. Posterior mean
         post_mean = 1 / torch.sqrt(alpha_t) * (xt - eps_factor * predicted_noise)
         # 3. Posterior variance
-        if t[0].item > 0:
-            post_var = (1 - alpha_bar_t_prev) * beta_t / (1 - alpha_bar_t)
+        post_var = (1 - alpha_bar_t_prev) * beta_t / (1 - alpha_bar_t)
         # 4. Reverse step
-            noise = torch.randn_like(xt)
-            x_t_prev = post_mean + torch.sqrt(post_var) * noise
-        else:
-            x_t_prev = post_mean
+        noise = torch.randn_like(xt)
+        x_t_prev = post_mean + torch.sqrt(post_var) * noise
+
         #######################
         return x_t_prev
 
@@ -152,7 +150,7 @@ class DiffusionModule(nn.Module):
         T = self.var_scheduler.num_train_timesteps
 
         from tqdm import tqdm
-        for i in tqdm(reversed(range(0, T))):
+        for i in tqdm(reversed(range(1, T))):
             xt = self.p_sample(xt, i)
         x0_pred = xt
         ######################
