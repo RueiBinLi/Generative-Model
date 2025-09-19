@@ -109,7 +109,7 @@ class DiffusionModule(nn.Module):
         # DO NOT change the code outside this part.
         # compute x_t_prev.
         if isinstance(t, int):
-            t = torch.full((xt.shape[0],), t, device=self.device, dtype=torch.long)
+            t = torch.tensor([t]).to(self.device)
         eps_factor = (1 - extract(self.var_scheduler.alphas, t, xt)) / (
             1 - extract(self.var_scheduler.alphas_cumprod, t, xt)
         ).sqrt()
@@ -151,7 +151,9 @@ class DiffusionModule(nn.Module):
 
         from tqdm import tqdm
         for i in tqdm(reversed(range(1, T))):
-            xt = self.p_sample(xt, i)
+            batch_size = xt.shape[0]
+            t = torch.full((batch_size,), i, device=self.device, dtype=torch.long)
+            xt = self.p_sample(xt, t)
         x0_pred = xt
         ######################
         return x0_pred
