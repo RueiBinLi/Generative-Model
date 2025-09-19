@@ -109,7 +109,7 @@ class DiffusionModule(nn.Module):
         # DO NOT change the code outside this part.
         # compute x_t_prev.
         if isinstance(t, int):
-            t = torch.tensor([t]).to(self.device)
+            t = torch.full((xt.shape[0],), t, device=self.device, dtype=torch.long)
         eps_factor = (1 - extract(self.var_scheduler.alphas, t, xt)) / (
             1 - extract(self.var_scheduler.alphas_cumprod, t, xt)
         ).sqrt()
@@ -124,11 +124,14 @@ class DiffusionModule(nn.Module):
         predicted_noise = self.network(xt, t)
         # 2. Posterior mean
         post_mean = 1 / torch.sqrt(alpha_t) * (xt - eps_factor * predicted_noise)
-        # 3. Posterior variance
-        post_var = (1 - alpha_bar_t_prev) * beta_t / (1 - alpha_bar_t)
+        # 3. Posterior variance       
         # 4. Reverse step
-        noise = torch.randn_like(xt)
-        x_t_prev = post_mean + torch.sqrt(post_var) * noise
+        if t[0].item() > 0:
+            post_var = (1 - alpha_bar_t_prev) * beta_t / (1 - alpha_bar_t)
+            noise = torch.randn_like(xt)
+            x_t_prev = post_mean + torch.sqrt(post_var) * noise
+        else:
+            x_t_prev = post_mean
 
         #######################
         return x_t_prev
@@ -150,7 +153,7 @@ class DiffusionModule(nn.Module):
         T = self.var_scheduler.num_train_timesteps
 
         from tqdm import tqdm
-        for i in tqdm(reversed(range(1, T))):
+        for i in tqdm(reversed(range(0, T))):
             batch_size = xt.shape[0]
             t = torch.full((batch_size,), i, device=self.device, dtype=torch.long)
             xt = self.p_sample(xt, t)
