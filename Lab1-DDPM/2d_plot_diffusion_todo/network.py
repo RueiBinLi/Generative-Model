@@ -115,7 +115,6 @@ class SimpleNet(nn.Module):
         
         # x is (batch_size, 2)
         # t is (batch_size, 1)
-        t = t.expand(x.shape[0])
         time_emb = self.MLP(t)
         x_t = torch.cat((x, time_emb), dim=-1)
         x = self.main_net(x_t)
