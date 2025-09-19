@@ -109,7 +109,7 @@ class DiffusionModule(nn.Module):
         # DO NOT change the code outside this part.
         # compute x_t_prev.
         if isinstance(t, int):
-            t = torch.tensor([t]).to(self.device)
+            t = torch.full((xt.shape[0],), t, device=self.device, dtype=torch.long)
         eps_factor = (1 - extract(self.var_scheduler.alphas, t, xt)) / (
             1 - extract(self.var_scheduler.alphas_cumprod, t, xt)
         ).sqrt()
