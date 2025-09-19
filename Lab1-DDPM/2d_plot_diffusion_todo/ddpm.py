@@ -123,7 +123,7 @@ class DiffusionModule(nn.Module):
         # 1. predict noise
         predicted_noise = self.network(xt, t)
         # 2. Posterior mean
-        post_mean = 1 / torch.sqrt(alpha_t) * (xt - beta_t * predicted_noise / torch.sqrt(1 - alpha_bar_t))
+        post_mean = 1 / torch.sqrt(alpha_t) * (xt - eps_factor * predicted_noise)
         # 3. Posterior variance
         if t[0].item > 0:
             post_var = (1 - alpha_bar_t_prev) * beta_t / (1 - alpha_bar_t)
