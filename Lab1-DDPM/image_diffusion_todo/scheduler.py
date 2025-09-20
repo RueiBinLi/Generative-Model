@@ -125,24 +125,26 @@ class DDPMScheduler(BaseScheduler):
         # 5. Return the final sample at t-1.
         if isinstance(t, int):
             t = torch.full((x_t.shape[0],), t, device=self.device, dtype=torch.long)
-        eps_factor = (1 - extract(self.alphas, t, x_t)) / (
-            1 - extract(self.alphas_cumprod, t, x_t)
-        ).sqrt()
-
-        beta_t      = extract(self.betas,           t, x_t)         # β_t
-        alpha_t     = extract(self.alphas,          t, x_t)         # α_t = 1 - β_t
-        alpha_bar_t = extract(self.alphas_cumprod,  t, x_t)         # \bar{α}_t
-        t_prev      = (t - 1).clamp(min=0)
-        alpha_bar_t_prev = extract(self.alphas_cumprod, t_prev, x_t) # \bar{α}_{t-1}
-
+        beta_t = extract(self.betas, t, x_t)
+        alpha_t = extract(self.alphas, t, x_t)
+        alpha_bar_t = extract(self.alphas_cumprod, t, x_t)
+        
+        sqrt_one_minus_alpha_bar_t = (1.0 - alpha_bar_t).sqrt()
+        
+        # Predicted x_0
+        x0_pred = (x_t - sqrt_one_minus_alpha_bar_t * eps_theta) / alpha_bar_t.sqrt()
+        
         # Posterior mean
-        post_mean = 1 / torch.sqrt(alpha_t) * (x_t - eps_factor * eps_theta)
-        # Posterior variance       
-        # Reverse step
+        post_mean_coeff_1 = (alpha_bar_t_prev.sqrt() * beta_t) / (1.0 - alpha_bar_t)
+        post_mean_coeff_2 = (alpha_t.sqrt() * (1 - alpha_bar_t_prev)) / (1.0 - alpha_bar_t)
+        post_mean = post_mean_coeff_1 * x0_pred + post_mean_coeff_2 * x_t
+
         if t.item() > 0:
-            post_var = (1 - alpha_bar_t_prev) * beta_t / (1 - alpha_bar_t)
+            t_prev = (t - 1).clamp(min=0)
+            alpha_bar_t_prev = extract(self.alphas_cumprod, t_prev, x_t)
+            post_var = (1 - alpha_bar_t_prev) / (1 - alpha_bar_t) * beta_t
             noise = torch.randn_like(x_t)
-            sample_prev = post_mean + torch.sqrt(post_var) * noise
+            sample_prev = post_mean + post_var.sqrt() * noise
         else:
             sample_prev = post_mean
         #######################
