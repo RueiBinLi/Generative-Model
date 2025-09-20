@@ -124,29 +124,34 @@ class DDPMScheduler(BaseScheduler):
         # 4. Add Gaussian noise scaled by √(\tilde{β}_t) unless t == 0.
         # 5. Return the final sample at t-1.
         if isinstance(t, int):
-            t = torch.full((x_t.shape[0],), t, device=self.device, dtype=torch.long)
-        beta_t = extract(self.betas, t, x_t)
-        alpha_t = extract(self.alphas, t, x_t)
-        alpha_bar_t = extract(self.alphas_cumprod, t, x_t)
-        
+            t_tensor = torch.full((x_t.shape[0],), t, device=x_t.device, dtype=torch.long)
+        else:
+            t_tensor = t.to(x_t.device).long()
+
+        beta_t = extract(self.betas, t_tensor, x_t)
+        alpha_t = extract(self.alphas, t_tensor, x_t)
+        alpha_bar_t = extract(self.alphas_cumprod, t_tensor, x_t)
+
+        t_prev = (t_tensor - 1).clamp(min=0)
+        alpha_bar_t_prev = extract(self.alphas_cumprod, t_prev, x_t)
+
         sqrt_one_minus_alpha_bar_t = (1.0 - alpha_bar_t).sqrt()
-        
-        # Predicted x_0
+
+        # predicted x0 from predicted noise
         x0_pred = (x_t - sqrt_one_minus_alpha_bar_t * eps_theta) / alpha_bar_t.sqrt()
-        
-        # Posterior mean
+
+        # posterior mean coefficients (same as DDPM posterior)
         post_mean_coeff_1 = (alpha_bar_t_prev.sqrt() * beta_t) / (1.0 - alpha_bar_t)
         post_mean_coeff_2 = (alpha_t.sqrt() * (1 - alpha_bar_t_prev)) / (1.0 - alpha_bar_t)
         post_mean = post_mean_coeff_1 * x0_pred + post_mean_coeff_2 * x_t
 
-        if t.item() > 0:
-            t_prev = (t - 1).clamp(min=0)
-            alpha_bar_t_prev = extract(self.alphas_cumprod, t_prev, x_t)
-            post_var = (1 - alpha_bar_t_prev) / (1 - alpha_bar_t) * beta_t
-            noise = torch.randn_like(x_t)
-            sample_prev = post_mean + post_var.sqrt() * noise
-        else:
-            sample_prev = post_mean
+        # posterior variance
+        post_var = ((1 - alpha_bar_t_prev) / (1 - alpha_bar_t)) * beta_t
+
+        # add noise only when t > 0 (per-sample)
+        nonzero_mask = (t_tensor > 0).to(x_t.dtype).reshape(-1, 1, 1, 1)
+        noise = torch.randn_like(x_t)
+        sample_prev = post_mean + (post_var.sqrt() * noise) * nonzero_mask
         #######################
         return sample_prev
 
