@@ -29,7 +29,11 @@ class DiffusionModule(nn.Module):
         # 2. Pass (x_t, timestep) into self.network, where the output should represent the clean sample x0_pred.
         # 3. Compute the loss as MSE(predicted x0_pred, ground-truth x0).
         ######################
-        loss = None
+        B = x0.shape[0]
+        t = self.var_scheduler.uniform_sample_t(B, x0.device)
+        x_t, eps = self.var_scheduler.add_noise(x0, t, eps=noise)
+        x0_pred = self.network(x_t, t, class_label) if class_label is not None else self.network(x_t, t)
+        loss = F.mse_loss(x0_pred, x0)
         return loss
     
     def get_loss_mean(self, x0, class_label=None, noise=None):
