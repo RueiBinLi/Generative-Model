@@ -40,8 +40,11 @@ class BaseScheduler(nn.Module):
             # 2. Convert alphā_t into betas using:
             #       beta_t = 1 - alphā_t / alphā_{t-1}
             # 3. Return betas as a tensor of shape [num_train_timesteps].
-            raise NotImplementedError("TODO: Implement cosine beta schedule here!")
-               
+            s = 0.008
+            t = torch.linspace(0, num_train_timesteps, steps=num_train_timesteps+1, dtype=torch.float64)
+            f_t = torch.cos(((t / num_train_timesteps + s) / (1 + s)) * (torch.pi / 2)) ** 2
+            alpha_cumprod_t = f_t / f_t[0]
+            betas = 1 - alpha_cumprod_t[1:] / alpha_cumprod_t[:-1] # [1:T] / [1:T-1] Noted: alpht_cumprod_t[0] = 1        
         else:
             raise NotImplementedError(f"{mode} is not implemented.")
 
