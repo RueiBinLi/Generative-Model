@@ -175,11 +175,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--train_num_steps",
         type=int,
-        default=100000, #50000, #100000
+        default=50000, #50000, #100000 # 100000 -> 50000
         help="the number of model training steps.",
     )
     parser.add_argument("--warmup_steps", type=int, default=200)
-    parser.add_argument("--log_interval", type=int, default=200)
+    parser.add_argument("--log_interval", type=int, default=2500) # 200 -> 2500
     parser.add_argument(
         "--max_num_images_per_cat",
         type=int,
