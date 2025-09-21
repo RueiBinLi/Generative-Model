@@ -166,7 +166,25 @@ class DDPMScheduler(BaseScheduler):
             sample_prev: denoised image sample at timestep t-1
         """
         ######## TODO ########
-        sample_prev = None
+        if isinstance(t, int):
+            t = torch.full((x_t.shape[0],), t, device=self.device, dtype=torch.long)
+
+        beta_t      = extract(self.betas,           t, x_t)         # β_t
+        alpha_t     = extract(self.alphas,          t, x_t)         # α_t = 1 - β_t
+        alpha_bar_t = extract(self.alphas_cumprod,  t, x_t)         # \bar{α}_t
+        t_prev      = (t - 1).clamp(min=0)
+        alpha_bar_t_prev = extract(self.alphas_cumprod, t_prev, x_t) # \bar{α}_{t-1}
+
+        # 1. posterior mean
+        post_mean = torch.sqrt(alpha_bar_t_prev) * beta_t / (1 - alpha_bar_t) * x0_pred + torch.sqrt(alpha_t) * (1 - alpha_bar_t_prev) / (1 - alpha_bar_t) * x_t
+        # 2. Reverse step
+        if t.item() > 0:
+            # 3. Posterior variance
+            post_var = (1 - alpha_bar_t_prev) * beta_t / (1 - alpha_bar_t)
+            noise = torch.randn_like(x_t)
+            sample_prev = post_mean + torch.sqrt(post_var) * noise
+        else:
+            sample_prev = post_mean
         #######################
         return sample_prev
 
@@ -183,7 +201,16 @@ class DDPMScheduler(BaseScheduler):
             sample_prev: denoised image sample at timestep t-1
         """
         ######## TODO ########
+        if isinstance(t, int):
+            t = torch.full((x_t.shape[0],), t, device=self.device, dtype=torch.long)
 
+        beta_t      = extract(self.betas,           t, x_t)         # β_t
+        alpha_t     = extract(self.alphas,          t, x_t)         # α_t = 1 - β_t
+        alpha_bar_t = extract(self.alphas_cumprod,  t, x_t)         # \bar{α}_t
+        t_prev      = (t - 1).clamp(min=0)
+        alpha_bar_t_prev = extract(self.alphas_cumprod, t_prev, x_t) # \bar{α}_{t-1}
+
+        
         sample_prev = None
         #######################
         return sample_prev
