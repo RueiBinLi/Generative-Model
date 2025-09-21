@@ -176,7 +176,9 @@ class DDPMScheduler(BaseScheduler):
         alpha_bar_t_prev = extract(self.alphas_cumprod, t_prev, x_t) # \bar{α}_{t-1}
 
         # 1. posterior mean
-        post_mean = torch.sqrt(alpha_bar_t_prev) * beta_t / (1 - alpha_bar_t) * x0_pred + torch.sqrt(alpha_t) * (1 - alpha_bar_t_prev) / (1 - alpha_bar_t) * x_t
+        x0_coef = torch.sqrt(alpha_bar_t_prev) * beta_t / (1 - alpha_bar_t)
+        x_t_coef = torch.sqrt(alpha_t) * (1 - alpha_bar_t_prev) / (1 - alpha_bar_t)
+        post_mean = x0_coef * x0_pred + x_t_coef * x_t
         # 2. Reverse step
         if t.item() > 0:
             # 3. Posterior variance
