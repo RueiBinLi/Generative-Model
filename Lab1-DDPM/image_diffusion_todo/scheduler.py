@@ -44,7 +44,8 @@ class BaseScheduler(nn.Module):
             t = torch.linspace(0, num_train_timesteps, steps=num_train_timesteps+1)
             f_t = torch.cos(((t / num_train_timesteps + s) / (1 + s)) * (torch.pi / 2)) ** 2
             alpha_cumprod_t = f_t / f_t[0]
-            betas = 1 - alpha_cumprod_t[1:] / alpha_cumprod_t[:-1] # [1:T] / [1:T-1] Noted: alpht_cumprod_t[0] = 1        
+            betas = 1 - alpha_cumprod_t[1:] / alpha_cumprod_t[:-1] # [1:T] / [1:T-1] Noted: alpht_cumprod_t[0] = 1
+            betas = torch.clip(betas, 0.0, 0.999)        
         else:
             raise NotImplementedError(f"{mode} is not implemented.")
 
