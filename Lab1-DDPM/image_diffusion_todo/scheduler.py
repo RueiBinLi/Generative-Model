@@ -127,34 +127,29 @@ class DDPMScheduler(BaseScheduler):
         # 4. Add Gaussian noise scaled by √(\tilde{β}_t) unless t == 0.
         # 5. Return the final sample at t-1.
         if isinstance(t, int):
-            t_tensor = torch.full((x_t.shape[0],), t, device=x_t.device, dtype=torch.long)
+            t = torch.full((x_t.shape[0],), t, device=self.device, dtype=torch.long)
+        eps_factor = (1 - extract(self.alphas, t, x_t)) / (
+            1 - extract(self.alphas_cumprod, t, x_t)
+        ).sqrt()
+
+        beta_t      = extract(self.betas,           t, x_t)         # β_t
+        alpha_t     = extract(self.alphas,          t, x_t)         # α_t = 1 - β_t
+        alpha_bar_t = extract(self.alphas_cumprod,  t, x_t)         # \bar{α}_t
+        t_prev      = (t - 1).clamp(min=0)
+        alpha_bar_t_prev = extract(self.alphas_cumprod, t_prev, x_t) # \bar{α}_{t-1}
+
+        # 1. predict noise
+        predicted_noise = eps_theta
+        # 2. Posterior mean
+        post_mean = 1 / torch.sqrt(alpha_t) * (x_t - eps_factor * predicted_noise)
+        # 3. Posterior variance       
+        # 4. Reverse step
+        if t.item() > 0:
+            post_var = (1 - alpha_bar_t_prev) * beta_t / (1 - alpha_bar_t)
+            noise = torch.randn_like(x_t)
+            sample_prev = post_mean + torch.sqrt(post_var) * noise
         else:
-            t_tensor = t.to(x_t.device).long()
-
-        beta_t = extract(self.betas, t_tensor, x_t)
-        alpha_t = extract(self.alphas, t_tensor, x_t)
-        alpha_bar_t = extract(self.alphas_cumprod, t_tensor, x_t)
-
-        t_prev = (t_tensor - 1).clamp(min=0)
-        alpha_bar_t_prev = extract(self.alphas_cumprod, t_prev, x_t)
-
-        sqrt_one_minus_alpha_bar_t = (1.0 - alpha_bar_t).sqrt()
-
-        # predicted x0 from predicted noise
-        x0_pred = (x_t - sqrt_one_minus_alpha_bar_t * eps_theta) / alpha_bar_t.sqrt()
-
-        # posterior mean coefficients (same as DDPM posterior)
-        post_mean_coeff_1 = (alpha_bar_t_prev.sqrt() * beta_t) / (1.0 - alpha_bar_t)
-        post_mean_coeff_2 = (alpha_t.sqrt() * (1 - alpha_bar_t_prev)) / (1.0 - alpha_bar_t)
-        post_mean = post_mean_coeff_1 * x0_pred + post_mean_coeff_2 * x_t
-
-        # posterior variance
-        post_var = ((1 - alpha_bar_t_prev) / (1 - alpha_bar_t)) * beta_t
-
-        # add noise only when t > 0 (per-sample)
-        nonzero_mask = (t_tensor > 0).to(x_t.dtype).reshape(-1, 1, 1, 1)
-        noise = torch.randn_like(x_t)
-        sample_prev = post_mean + (post_var.sqrt() * noise) * nonzero_mask
+            sample_prev = post_mean
         #######################
         return sample_prev
 
