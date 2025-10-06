@@ -91,7 +91,7 @@ class AFHQDataset(torch.utils.data.Dataset):
 class AFHQDataModule(object):
     def __init__(
         self,
-        root: str = "data",
+        root: str = "./data",
         batch_size: int = 32,
         num_workers: int = 4,
         max_num_images_per_cat: int = 1000,
