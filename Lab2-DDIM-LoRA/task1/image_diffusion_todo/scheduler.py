@@ -42,7 +42,7 @@ class BaseScheduler(nn.Module):
             # 3. Return betas as a tensor of shape [num_train_timesteps].
             s = 0.008
             t = torch.linspace(0, 1, steps=num_train_timesteps+1)
-            f_t = torch.cos(((t / num_train_timesteps + s) / (1 + s)) * (torch.pi / 2)) ** 2
+            f_t = torch.cos(((t + s) / (1 + s)) * (torch.pi / 2)) ** 2
             alpha_cumprod_t = f_t / f_t[0]
             betas = 1 - alpha_cumprod_t[1:] / alpha_cumprod_t[:-1] # [1:T] / [1:T-1] Noted: alpht_cumprod_t[0] = 1
             betas = torch.clip(betas, 0.0001, 0.9999)           
@@ -290,7 +290,7 @@ class DDIMScheduler(BaseScheduler):
         #   - Store the step ratio in `self._ddim_step_ratio` for later use when computing previous t.
         #   - Compute a `step_ratio` that maps inference steps to training steps.
         # DO NOT change the code outside this part.
-        step_ratio = self.num_train_timesteps / num_inference_timesteps
+        step_ratio = self.num_train_timesteps // num_inference_timesteps
         self._ddim_step_ratio = step_ratio
 
         timesteps = (np.arange(0, num_inference_timesteps) * step_ratio).round()
@@ -317,21 +317,21 @@ class DDIMScheduler(BaseScheduler):
         ######## TODO ########
         # DO NOT change the code outside this part.
         assert predictor == "noise", "In assignment 2, we only implement DDIM with noise predictor."
-        t_prev = t - self._ddim_step_ratio
-        alpha_prod_t = self.var_scheduler.alphas_cumpord[t]
-        alpha_prod_t_prev = self.var_scheduler.alphas_cumprod[t_prev] if t_prev >= 0 else torch.tensor(1.0)
+        t_prev      = t - self._ddim_step_ratio
 
-        x0_pred = (x_t - torch.sqrt(1.0 - alpha_prod_t) * eps_theta) / torch.sqrt(alpha_prod_t)
+        alpha_cumprod_t = extract(self.alphas_cumprod,  t, x_t)
+        alpha_cumprod_t_prev = extract(self.alphas_cumprod, t_prev, x_t) if t_prev >= 0 else torch.tensor(1.0, device=x_t.device)
+
+        x0_pred = (x_t - torch.sqrt(1.0 - alpha_cumprod_t) * eps_theta) / torch.sqrt(alpha_cumprod_t)
         
-        variance = self.var_scheduler._get_variance(t, t_prev)
-        sigma_t = self.eta * torch.sqrt(variance)
-        direction_coeff = torch.sqrt(1.0 - alpha_prod_t_prev - sigma_t**2)
+        sigma_t = self.eta * torch.sqrt((1 - alpha_cumprod_t_prev) / (1 - alpha_cumprod_t) * (1 - alpha_cumprod_t / alpha_cumprod_t_prev))
+        direction_coeff = torch.sqrt(1.0 - alpha_cumprod_t_prev - sigma_t**2)
 
         if self.eta > 0:
             noise = torch.randn_like(x_t)
-            sample_prev = torch.sqrt(alpha_prod_t_prev) * x0_pred + direction_coeff * eps_theta + sigma_t * noise
+            sample_prev = torch.sqrt(alpha_cumprod_t_prev) * x0_pred + direction_coeff * eps_theta + sigma_t * noise
         else:
-            sample_prev = torch.sqrt(alpha_prod_t_prev) * x0_pred + direction_coeff * eps_theta
+            sample_prev = torch.sqrt(alpha_cumprod_t_prev) * x0_pred + direction_coeff * eps_theta
 
         #######################
         return sample_prev
