@@ -290,7 +290,11 @@ class DDIMScheduler(BaseScheduler):
         #   - Store the step ratio in `self._ddim_step_ratio` for later use when computing previous t.
         #   - Compute a `step_ratio` that maps inference steps to training steps.
         # DO NOT change the code outside this part.
-        raise NotImplementedError("TODO")
+        step_ratio = self.num_train_timesteps / num_inference_timesteps
+        self._ddim_step_ratio = step_ratio
+
+        timesteps = (np.arange(0, num_inference_timesteps) * step_ratio).round()
+        self.timesteps = torch.from_numpy(timesteps[::-1].copy()).long()
         #######################
 
     def _get_teeth(self, consts: torch.Tensor, t: torch.Tensor):
@@ -313,6 +317,21 @@ class DDIMScheduler(BaseScheduler):
         ######## TODO ########
         # DO NOT change the code outside this part.
         assert predictor == "noise", "In assignment 2, we only implement DDIM with noise predictor."
-        sample_prev = None
+        t_prev = t - self._ddim_step_ratio
+        alpha_prod_t = self.var_scheduler.alphas_cumpord[t]
+        alpha_prod_t_prev = self.var_scheduler.alphas_cumprod[t_prev] if t_prev >= 0 else torch.tensor(1.0)
+
+        x0_pred = (x_t - torch.sqrt(1.0 - alpha_prod_t) * eps_theta) / torch.sqrt(alpha_prod_t)
+        
+        variance = self.var_scheduler._get_variance(t, t_prev)
+        sigma_t = self.eta * torch.sqrt(variance)
+        direction_coeff = torch.sqrt(1.0 - alpha_prod_t_prev - sigma_t**2)
+
+        if self.eta > 0:
+            noise = torch.randn_like(x_t)
+            sample_prev = torch.sqrt(alpha_prod_t_prev) * x0_pred + direction_coeff * eps_theta + sigma_t * noise
+        else:
+            sample_prev = torch.sqrt(alpha_prod_t_prev) * x0_pred + direction_coeff * eps_theta
+
         #######################
         return sample_prev
