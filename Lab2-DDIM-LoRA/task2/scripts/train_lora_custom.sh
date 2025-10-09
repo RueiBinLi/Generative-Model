@@ -1,4 +1,4 @@
-export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export MODEL_NAME="gbharti/wealth-alpaca_lora"
 export TRAIN_DATA_DIR="./sample_data/artistic-custom"
 export OUTPUT_DIR="./runs/artistic_custom"
 
