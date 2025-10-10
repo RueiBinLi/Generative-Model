@@ -179,7 +179,7 @@ class DiffusionModule(nn.Module):
         # DO NOT change the code outside this part.
         # compute x_t_prev based on ddim reverse process.
         alpha_prod_t = extract(self.var_scheduler.alphas_cumprod, t, xt)
-        if t_prev >= 0:
+        if (t_prev >= 0).all():
             alpha_prod_t_prev = extract(self.var_scheduler.alphas_cumprod, t_prev, xt)
         else:
             alpha_prod_t_prev = torch.ones_like(alpha_prod_t)
@@ -189,10 +189,10 @@ class DiffusionModule(nn.Module):
 
         x0_pred = (xt - torch.sqrt(1.0 - alpha_prod_t) * predicted_noise) / torch.sqrt(alpha_prod_t)
         
-        sigma_t_sqaure = eta * ((1.0 - alpha_prod_t_prev) / (1.0 - alpha_prod_t)) * (1.0 - alpha_prod_t / alpha_prod_t_prev)
-        sigma_t_sqaure = torch.clamp(sigma_t_sqaure, min=0.0)
-        sigma_t = torch.sqrt(sigma_t_sqaure)
-        direction_coeff = torch.sqrt(1.0 - alpha_prod_t_prev - sigma_t_sqaure)
+        sigma_t_square = eta * ((1.0 - alpha_prod_t_prev) / (1.0 - alpha_prod_t)) * (1.0 - alpha_prod_t / alpha_prod_t_prev)
+        sigma_t_square = torch.clamp(sigma_t_square, min=0.0)
+        sigma_t = torch.sqrt(sigma_t_square)
+        direction_coeff = torch.sqrt(1.0 - alpha_prod_t_prev - sigma_t_square)
 
         if eta > 0:
             noise = torch.randn_like(xt)
@@ -229,10 +229,10 @@ class DiffusionModule(nn.Module):
         timesteps = torch.from_numpy(timesteps)
         prev_timesteps = timesteps - step_ratio
 
-        xt = torch.zeros(shape).to(self.device)
+        xt = torch.randn(shape).to(self.device)
         for t, t_prev in zip(timesteps, prev_timesteps):
-            t_tensor = torch.full((xt.shape[0],), t.item(), device=self.deivce, dtype=torch.long)
-            t_prev_tensor = torch.full((xt.shape[0]), t_prev.item(), device=self.device, dtype=torch.long)
+            t_tensor = torch.full((xt.shape[0],), t.item(), device=self.device, dtype=torch.long)
+            t_prev_tensor = torch.full((xt.shape[0],), t_prev.item(), device=self.device, dtype=torch.long)
 
             xt = self.ddim_p_sample(xt, t_tensor, t_prev_tensor, eta=eta)
 
