@@ -136,15 +136,15 @@ class StableDiffusion(nn.Module):
             .long()
         )
         noise = torch.randn_like(latents)
-
         latents_noisy = self.scheduler.add_noise(latents, noise, t)
+        
         lora_noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
-        with self.unet.disable_adapter():
+        with self.unet.disable_adapters():
             unet_noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
         w_t = (1 - self.alphas[t]).reshape(-1, 1, 1, 1)
         latents.backward(w_t * (lora_noise_pred - unet_noise_pred).detach())
 
-        lora_loss = F.mse_loss(lora_noise_pred, noise)
+        lora_loss = F.mse_loss(lora_noise_pred, noise.detach())
         return lora_loss * lora_loss_weight
     
     @torch.no_grad()
