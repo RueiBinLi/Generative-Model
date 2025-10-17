@@ -119,10 +119,9 @@ class StableDiffusion(nn.Module):
         latents_noisy = self.scheduler.add_noise(latents, noise, t)
         noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
         w_t = (1 - self.alphas[t]).reshape(-1, 1, 1, 1)
-        latents.backward(gradient=w_t * (noise_pred - noise).detach())
 
-        loss = F.mse_loss(noise_pred, noise)
-        return loss
+        loss = w_t * F.mse_loss(noise_pred, noise.detach(), reduction="none")
+        return loss.mean()
     
     def get_vsd_loss(self, latents, text_embeddings, guidance_scale=7.5, lora_loss_weight=1.0):
         """
