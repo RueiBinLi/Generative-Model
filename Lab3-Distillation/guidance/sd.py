@@ -128,7 +128,19 @@ class StableDiffusion(nn.Module):
         Reference: ProlificDreamer (https://arxiv.org/abs/2305.16213)
         """
         # TODO: Implement VSD loss
-        
+        t = (
+            torch.randint(self.min_step, self.max_step + 1, size=(latents.shape[0],))
+            .to(latents.device)
+            .long()
+        )
+        noise = torch.randn_like(latents)
+
+        latents_noisy = self.scheduler.add_noise(latents, noise, t)
+        lora_noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
+        with self.unet.disable_adapter():
+            unet_noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
+        w_t = (1 - self.alphas[t]).reshape(-1, 1, 1, 1)
+        latents.backward(w_t * (lora_noise_pred - unet_noise_pred).detach())
     
     @torch.no_grad()
     def invert_noise(self, latents, target_t, text_embeddings, guidance_scale=-7.5, n_steps=10, eta=0.3):
