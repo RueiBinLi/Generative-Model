@@ -118,8 +118,6 @@ class StableDiffusion(nn.Module):
 
         latents_noisy = self.scheduler.add_noise(latents, noise, t)
         noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
-        w_t = (1 - self.alphas[t]).reshape(-1, 1, 1, 1)
-        latents.backward(gradient=w_t * (noise_pred - noise).detach())
 
         loss = F.mse_loss(noise_pred, noise)
         return loss
