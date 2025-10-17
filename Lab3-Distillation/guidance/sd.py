@@ -120,6 +120,9 @@ class StableDiffusion(nn.Module):
         noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
         w_t = (1 - self.alphas[t]).reshape(-1, 1, 1, 1)
         latents.backward(gradient=w_t * (noise_pred - noise).detach())
+
+        loss = F.mse_loss(noise_pred, noise)
+        return loss
     
     def get_vsd_loss(self, latents, text_embeddings, guidance_scale=7.5, lora_loss_weight=1.0):
         """
@@ -141,6 +144,9 @@ class StableDiffusion(nn.Module):
             unet_noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
         w_t = (1 - self.alphas[t]).reshape(-1, 1, 1, 1)
         latents.backward(w_t * (lora_noise_pred - unet_noise_pred).detach())
+
+        lora_loss = F.mse_loss(lora_noise_pred, noise)
+        return lora_loss * lora_loss_weight
     
     @torch.no_grad()
     def invert_noise(self, latents, target_t, text_embeddings, guidance_scale=-7.5, n_steps=10, eta=0.3):
@@ -166,7 +172,24 @@ class StableDiffusion(nn.Module):
         # You may *read* external implementations for reference, but you must
         # NOT call any "invert"/"ddim_invert"/"invert_step" utilities
         # from diffusers or other libraries.
-        raise NotImplementedError("TODO: Implement DDIM inversion")
+        timesteps = torch.linspace(0, target_t - 1, n_steps)
+        xt = latents
+
+        for i in range(n_steps):
+            t_current = timesteps[i]
+            t_next = timesteps[i + 1] if i < n_steps - 1 else target_t
+
+            t_current_tensor = torch.full((latents.shape[0],), t_current, device=latents.device).long()
+            noise_pred = self.get_noise_preds(xt, t_current_tensor, text_embeddings, guidance_scale)
+
+            alpha_t = self.scheduler.alphas_cumprod[t_current]
+            alpha_t_next = self.scheduler.alphas_cumprod[t_next]
+
+            first_part = torch.sqrt((alpha_t_next / alpha_t)) * xt
+            second_part = (torch.sqrt(1 / alpha_t_next - 1) - torch.sqrt(1 / alpha_t - 1)) * noise_pred
+            xt_next = first_part + second_part
+            xt = xt_next
+        return xt
     
     def get_sdi_loss(
         self, 
