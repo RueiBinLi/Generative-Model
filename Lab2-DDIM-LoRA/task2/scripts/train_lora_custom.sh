@@ -5,6 +5,7 @@ export OUTPUT_DIR="./runs/artistic_custom"
 accelerate launch --mixed_precision="no" train_lora.py \
   --pretrained_model_name_or_path=$MODEL_NAME \
   --output_dir=$OUTPUT_DIR \
+  --dataset_name=$TRAIN_DATA_DIR \
   --caption_column="text" \
   --resolution=512 \
   --random_flip \
