@@ -118,12 +118,10 @@ class StableDiffusion(nn.Module):
 
         latents_noisy = self.scheduler.add_noise(latents, noise, t)
         noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
-        w_t = (1 - self.alphas[t])
+        w_t = (1 - self.alphas[t]).reshape(-1, 1, 1, 1)
 
-        grad = w_t[:, None, None, None] * (noise_pred - noise)
-        grad = torch.nan_to_num(grad)
-        targets = (latents - grad).detach()
-        loss = 0.5 * F.mse_loss(latents.float(), targets, reduction='sum') / latents.shape[0]
+        grad = w_t * (noise_pred - noise)
+        loss = (grad.detach() * latents).mean()
         return loss
     
     def get_vsd_loss(self, latents, text_embeddings, guidance_scale=7.5, lora_loss_weight=1.0):
