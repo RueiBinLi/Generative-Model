@@ -120,8 +120,8 @@ class StableDiffusion(nn.Module):
         noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
         w_t = (1 - self.alphas[t]).reshape(-1, 1, 1, 1)
 
-        loss = w_t * F.mse_loss(noise_pred, noise.detach(), reduction="none")
-        return loss.mean()
+        loss = w_t * (noise_pred - noise)
+        return loss
     
     def get_vsd_loss(self, latents, text_embeddings, guidance_scale=7.5, lora_loss_weight=1.0):
         """
@@ -138,9 +138,9 @@ class StableDiffusion(nn.Module):
         noise = torch.randn_like(latents)
         latents_noisy = self.scheduler.add_noise(latents, noise, t)
         
+        unet_noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
+        self._init_vsd_components(lora_rank=4)
         lora_noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
-        with self.unet.disable_adapters():
-            unet_noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
         w_t = (1 - self.alphas[t]).reshape(-1, 1, 1, 1)
         latents.backward(w_t * (lora_noise_pred - unet_noise_pred).detach())
 
