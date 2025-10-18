@@ -140,13 +140,17 @@ class StableDiffusion(nn.Module):
         latents_noisy = self.scheduler.add_noise(latents, noise, t)
         
         lora_noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
-        # with self.unet.disable_adapter_layers():
-        #     unet_noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
-        w_t = (1 - self.alphas[t]).reshape(-1, 1, 1, 1)
-        latents.backward(w_t * (lora_noise_pred - noise).detach())
+        with torch.no_grad():
+            with self.unet.disable_adapters():
+                base_noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
 
-        lora_loss = lora_noise_pred - noise
-        return lora_loss * lora_loss_weight
+        lora_loss = F.mse_loss(lora_noise_pred, noise.detach())
+        w_t = (1 - self.alphas[t]).reshape(-1, 1, 1, 1)
+
+        grad_vsd = w_t * (base_noise_pred - lora_noise_pred)
+        loss_vsd = (grad_vsd.detach() * latents).mean()
+        
+        return (lora_loss * lora_loss_weight) + loss_vsd
     
     @torch.no_grad()
     def invert_noise(self, latents, target_t, text_embeddings, guidance_scale=-7.5, n_steps=10, eta=0.3):
