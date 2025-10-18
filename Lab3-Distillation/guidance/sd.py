@@ -141,7 +141,7 @@ class StableDiffusion(nn.Module):
         
         lora_noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
         with torch.no_grad():
-            with self.unet.disable_adapters():
+            with self.unet.disable_lora():
                 base_noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
 
         lora_loss = F.mse_loss(lora_noise_pred, noise.detach())
