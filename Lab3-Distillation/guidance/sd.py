@@ -275,7 +275,7 @@ class StableDiffusion(nn.Module):
                 noise_pred = self.get_noise_preds(latents, t, text_embeddings, guidance_scale)
                 
                 # TODO: Denoise to get target x0 using predicted noise
-                alpha_t = self.alpha[t].reshape(-1, 1, 1, 1)
+                alpha_t = self.alphas[t].reshape(-1, 1, 1, 1)
                 target = (latents_noisy - torch.sqrt(1.0 - alpha_t) * noise_pred) / torch.sqrt(alpha_t)
                 
                 # Cache the target
