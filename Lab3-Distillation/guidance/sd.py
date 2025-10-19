@@ -282,7 +282,7 @@ class StableDiffusion(nn.Module):
                 self.sdi_target = target.detach()
         
         # TODO: Compute MSE loss between current latents and cached target
-        loss = F.mse_loss(latents - self.sdi_target)
+        loss = F.mse_loss(latents, self.sdi_target)
         
         return loss
         
