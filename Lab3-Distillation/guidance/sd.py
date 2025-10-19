@@ -176,10 +176,11 @@ class StableDiffusion(nn.Module):
         # You may *read* external implementations for reference, but you must
         # NOT call any "invert"/"ddim_invert"/"invert_step" utilities
         # from diffusers or other libraries.
-        if target_t.dim() > 0:
-            target_t = target_t[0].item()
-        
-        target_t_scalar = target_t[0].item()
+        if torch.is_tensor(target_t) and target_t.dim() > 0:
+            target_t_scalar = target_t[0].item()
+        else:
+            target_t_scalar = target_t
+
         timesteps = torch.linspace(0, target_t_scalar, n_steps + 1).long().to(latents.device)
         xt = latents
 
@@ -203,15 +204,15 @@ class StableDiffusion(nn.Module):
 
             first_part = (sqrt_alpha_t_next / sqrt_alpha_t) * xt
             second_part = (sqrt_one_minus_alpha_t_next - (sqrt_alpha_t_next * sqrt_one_minus_alpha_t) / sqrt_alpha_t) * noise_pred
-            xt_next_determinisitc = first_part + second_part
+            xt_next_deterministic = first_part + second_part
 
             if eta > 0:
                 variance = ((1.0 - alpha_t_next) / (1.0 - alpha_t)) * (1.0 - alpha_t / alpha_t_next)
                 std_dev_t = eta * torch.sqrt(variance)
                 noise = torch.randn_like(xt)
-                xt_next = xt_next_determinisitc + std_dev_t * noise
+                xt_next = xt_next_deterministic + std_dev_t * noise
             else:
-                xt_next = xt_next_determinisitc
+                xt_next = xt_next_deterministic
 
             xt = xt_next
         return xt
@@ -278,7 +279,7 @@ class StableDiffusion(nn.Module):
                 )
                 
                 # TODO: Predict noise from inverted noisy latents
-                noise_pred = self.get_noise_preds(latents, t, text_embeddings, guidance_scale)
+                noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
                 
                 # TODO: Denoise to get target x0 using predicted noise
                 alpha_t = self.alphas[t].reshape(-1, 1, 1, 1)
