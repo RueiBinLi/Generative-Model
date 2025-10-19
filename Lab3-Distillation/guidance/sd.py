@@ -207,7 +207,8 @@ class StableDiffusion(nn.Module):
             xt_next_deterministic = first_part + second_part
 
             if eta > 0:
-                variance = ((1.0 - alpha_t_next) / (1.0 - alpha_t)) * (1.0 - alpha_t / alpha_t_next)
+                variance = ((1.0 - alpha_t) / (1.0 - alpha_t_next)) * (1.0 - alpha_t_next / alpha_t)
+                variance = torch.clamp(variance, min=1e-20)
                 std_dev_t = eta * torch.sqrt(variance)
                 noise = torch.randn_like(xt)
                 xt_next = xt_next_deterministic + std_dev_t * noise
