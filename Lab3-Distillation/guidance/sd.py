@@ -123,7 +123,7 @@ class StableDiffusion(nn.Module):
         grad = w_t * (noise_pred - noise)
         loss = (grad.detach() * latents).mean()
         return loss
-# ------------------------------------------------------------------------------UNFINISH--------------------------------------------------------------------------    
+
     def get_vsd_loss(self, latents, text_embeddings, guidance_scale=7.5, lora_loss_weight=1.0):
         """
         Variational Score Distillation (VSD) Loss
@@ -139,19 +139,25 @@ class StableDiffusion(nn.Module):
         noise = torch.randn_like(latents)
         latents_noisy = self.scheduler.add_noise(latents, noise, t)
         
+        self.unet.enable_adapters()
         lora_noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
+
         self.unet.disable_adapters()
         base_noise_pred = self.get_noise_preds(latents_noisy, t, text_embeddings, guidance_scale)
         self.unet.enable_adapters()
 
-        lora_loss = F.mse_loss(lora_noise_pred, noise.detach())
         w_t = (1 - self.alphas[t]).reshape(-1, 1, 1, 1)
 
         grad_vsd = w_t * (base_noise_pred - lora_noise_pred)
         loss_vsd = (grad_vsd.detach() * latents).mean()
+
+        latents_noisy_detached = latents_noisy.detach()
+        lora_noise_pred_for_loss = self.get_noise_preds(latents_noisy_detached, t, text_embeddings, guidance_scale)
+
+        lora_loss = F.mse_loss(lora_noise_pred_for_loss, noise.detach())
         
         return (lora_loss * lora_loss_weight) + loss_vsd
-# ------------------------------------------------------------------------------UNFINISH--------------------------------------------------------------------------    
+
     @torch.no_grad()
     def invert_noise(self, latents, target_t, text_embeddings, guidance_scale=-7.5, n_steps=10, eta=0.3):
         """
