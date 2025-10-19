@@ -176,12 +176,13 @@ class StableDiffusion(nn.Module):
         # You may *read* external implementations for reference, but you must
         # NOT call any "invert"/"ddim_invert"/"invert_step" utilities
         # from diffusers or other libraries.
-        timesteps = torch.linspace(0, target_t - 1, n_steps)
+        target_t_scalar = target_t[0].item()
+        timesteps = torch.linspace(0, target_t_scalar, n_steps + 1).long().to(latents.device)
         xt = latents
 
         for i in range(n_steps):
             t_current = timesteps[i]
-            t_next = timesteps[i + 1] if i < n_steps - 1 else target_t
+            t_next = timesteps[i + 1]
 
             t_current_tensor = torch.full((latents.shape[0],), t_current, device=latents.device).long()
             noise_pred = self.get_noise_preds(xt, t_current_tensor, text_embeddings, guidance_scale)
@@ -189,9 +190,23 @@ class StableDiffusion(nn.Module):
             alpha_t = self.scheduler.alphas_cumprod[t_current]
             alpha_t_next = self.scheduler.alphas_cumprod[t_next]
 
-            first_part = torch.sqrt((alpha_t_next / alpha_t)) * xt
-            second_part = (torch.sqrt(1 / alpha_t_next - 1) - torch.sqrt(1 / alpha_t - 1)) * noise_pred
-            xt_next = first_part + second_part
+            sqrt_alpha_t = torch.sqrt(alpha_t)
+            sqrt_alpha_t_next = torch.sqrt(alpha_t_next)
+            sqrt_one_minus_alpha_t = torch.sqrt(1.0 - alpha_t)
+            sqrt_one_minus_alpha_t_next = torch.sqrt(1.0 - alpha_t_next)
+
+            first_part = (sqrt_alpha_t_next / sqrt_alpha_t) * xt
+            second_part = (sqrt_one_minus_alpha_t_next - (sqrt_alpha_t_next * sqrt_one_minus_alpha_t) / sqrt_alpha_t) * noise_pred
+            xt_next_determinisitc = first_part + second_part
+
+            if eta > 0:
+                variance = ((1.0 - alpha_t_next) / (1.0 - alpha_t)) * (1.0 - alpha_t / alpha_t_next)
+                std_dev_t = eta * torch.sqrt(variance)
+                noise = torch.randn_like(xt)
+                xt_next = xt_next_determinisitc + std_dev_t + noise
+            else:
+                xt_next = xt_next_determinisitc
+
             xt = xt_next
         return xt
     
@@ -237,7 +252,11 @@ class StableDiffusion(nn.Module):
         B = latents.shape[0]
         
         # TODO: Create current timestep tensor based on training progress
-        # t = ...
+        progress = current_iter / total_iters
+        t_scalar = self.max_step - (self.max_step - self.min_step) * progress
+        t_scalar_int = int(t_scalar)
+
+        t = torch.full((B,), t_scalar_int, device=latents.device, dtype=torch.long)
         
         # Check if we need to update target
         should_update = (current_iter % update_interval == 0) or not hasattr(self, 'sdi_target')
@@ -253,16 +272,17 @@ class StableDiffusion(nn.Module):
                 )
                 
                 # TODO: Predict noise from inverted noisy latents
-                # noise_pred = ...
+                noise_pred = self.get_noise_preds(latents, t, text_embeddings, guidance_scale)
                 
                 # TODO: Denoise to get target x0 using predicted noise
-                # target = ...
+                alpha_t = self.alpha[t].reshape(-1, 1, 1, 1)
+                target = (latents_noisy - torch.sqrt(1.0 - alpha_t) * noise_pred) / torch.sqrt(alpha_t)
                 
                 # Cache the target
                 self.sdi_target = target.detach()
         
         # TODO: Compute MSE loss between current latents and cached target
-        # loss = ...
+        loss = F.mse_loss(latents - self.sdi_target)
         
         return loss
         
