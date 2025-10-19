@@ -176,6 +176,9 @@ class StableDiffusion(nn.Module):
         # You may *read* external implementations for reference, but you must
         # NOT call any "invert"/"ddim_invert"/"invert_step" utilities
         # from diffusers or other libraries.
+        if target_t.dim() > 0:
+            target_t = target_t[0].item()
+        
         target_t_scalar = target_t[0].item()
         timesteps = torch.linspace(0, target_t_scalar, n_steps + 1).long().to(latents.device)
         xt = latents
@@ -183,6 +186,9 @@ class StableDiffusion(nn.Module):
         for i in range(n_steps):
             t_current = timesteps[i]
             t_next = timesteps[i + 1]
+
+            if t_current == t_next:
+                continue
 
             t_current_tensor = torch.full((latents.shape[0],), t_current, device=latents.device).long()
             noise_pred = self.get_noise_preds(xt, t_current_tensor, text_embeddings, guidance_scale)
@@ -203,7 +209,7 @@ class StableDiffusion(nn.Module):
                 variance = ((1.0 - alpha_t_next) / (1.0 - alpha_t)) * (1.0 - alpha_t / alpha_t_next)
                 std_dev_t = eta * torch.sqrt(variance)
                 noise = torch.randn_like(xt)
-                xt_next = xt_next_determinisitc + std_dev_t + noise
+                xt_next = xt_next_determinisitc + std_dev_t * noise
             else:
                 xt_next = xt_next_determinisitc
 
