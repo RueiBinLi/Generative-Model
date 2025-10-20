@@ -202,15 +202,18 @@ class StableDiffusion(nn.Module):
 
             alpha_t = self.scheduler.alphas_cumprod[t_current]
             alpha_t_next = self.scheduler.alphas_cumprod[t_next]
-
-            sqrt_alpha_t = torch.sqrt(alpha_t)
-            sqrt_alpha_t_next = torch.sqrt(alpha_t_next)
-            sqrt_one_minus_alpha_t = torch.sqrt(1.0 - alpha_t)
-            sqrt_one_minus_alpha_t_next = torch.sqrt(1.0 - alpha_t_next)
-
-            first_part = (sqrt_alpha_t_next / sqrt_alpha_t) * xt
-            second_part = (sqrt_one_minus_alpha_t_next - (sqrt_alpha_t_next * sqrt_one_minus_alpha_t) / sqrt_alpha_t) * noise_pred
+            first_part = torch.sqrt(alpha_t_next / alpha_t) * xt
+            second_part = (torch.sqrt(1.0 / alpha_t_next - 1.0) - torch.sqrt(1.0 / alpha_t - 1)) * torch.sqrt(alpha_t_next) * noise_pred
             xt_next_deterministic = first_part + second_part
+
+            # sqrt_alpha_t = torch.sqrt(alpha_t)
+            # sqrt_alpha_t_next = torch.sqrt(alpha_t_next)
+            # sqrt_one_minus_alpha_t = torch.sqrt(1.0 - alpha_t)
+            # sqrt_one_minus_alpha_t_next = torch.sqrt(1.0 - alpha_t_next)
+
+            # first_part = (sqrt_alpha_t_next / sqrt_alpha_t) * xt
+            # second_part = (sqrt_one_minus_alpha_t_next - (sqrt_alpha_t_next * sqrt_one_minus_alpha_t) / sqrt_alpha_t) * noise_pred
+            # xt_next_deterministic = first_part + second_part
 
             if eta > 0:
                 variance = ((1.0 - alpha_t) / (1.0 - alpha_t_next)) * (1.0 - alpha_t_next / alpha_t)
