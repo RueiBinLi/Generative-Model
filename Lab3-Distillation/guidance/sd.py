@@ -206,6 +206,7 @@ class StableDiffusion(nn.Module):
             second_part = (torch.sqrt(1.0 / alpha_t_next - 1.0) - torch.sqrt(1.0 / alpha_t - 1)) * torch.sqrt(alpha_t_next) * noise_pred
             xt_next_deterministic = first_part + second_part
 
+            # --- the different formula but the same result ---
             # sqrt_alpha_t = torch.sqrt(alpha_t)
             # sqrt_alpha_t_next = torch.sqrt(alpha_t_next)
             # sqrt_one_minus_alpha_t = torch.sqrt(1.0 - alpha_t)
