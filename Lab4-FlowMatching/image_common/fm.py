@@ -54,7 +54,7 @@ class FMScheduler(nn.Module):
         # Hint: The interpolation formula is x_t = (1-t) * x_0 + t * x_1
         # where 'x' is x_0 (noise) and 'x1' is the data sample.
         
-        psi_t = None  # TODO: implement the interpolation
+        psi_t = (1-t) * x + t * x1  # TODO: implement the interpolation
         ######################
 
         return psi_t
@@ -75,7 +75,7 @@ class FMScheduler(nn.Module):
         #   vt: predicted velocity (the direction to move)
         #   dt: time step size
         
-        x_next = None  # TODO: implement the Euler step
+        x_next = xt + dt * vt  # TODO: implement the Euler step
         ######################
 
         return x_next
@@ -131,11 +131,14 @@ class FlowMatching(nn.Module):
         # 5. Calculate the loss: MSE between predicted and target velocity
         #    Hint: use .pow(2).mean()
 
-        t_ = None  # TODO: reshape t for broadcasting
-        x_t = None  # TODO: compute interpolated sample
-        u_t = None  # TODO: compute target velocity
-        model_out = None  # TODO: get model prediction
-        loss = None  # TODO: compute MSE loss
+        # t_ = expand_t(t, x1)  # TODO: reshape t for broadcasting
+        x_t = self.fm_scheduler.compute_psi_t(x1, t, x0)  # TODO: compute interpolated sample
+        u_t = x1 - x0  # TODO: compute target velocity
+        if class_label is not None:
+            model_out = self.network(x_t, t, class_label=class_label)  # TODO: get model prediction
+        else:
+            model_out = self.network(x_t, t)
+        loss = F.mse_loss(model_out, u_t)  # TODO: compute MSE loss
         ######################
 
         return loss
@@ -204,9 +207,15 @@ class FlowMatching(nn.Module):
             #
             # 4. Update xt for the next iteration: xt = xt_next
 
-            dt = None  # TODO: compute time step size
-            vt = None  # TODO: predict velocity (with or without CFG)
-            xt_next = None  # TODO: perform Euler step
+            dt = t_next - t  # TODO: compute time step size
+            dt = expand_t(dt, xt)
+            if do_classifier_free_guidance:
+                v_uncond = self.network(xt, t_next, class_label=None)
+                v_cond = self.network(xt, t_next, class_label=class_label)
+                vt = v_uncond + guidance_scale * (v_cond - v_uncond)  # TODO: predict velocity (with or without CFG)
+            else:
+                vt = self.network(xt, t_next, class_label=class_label)
+            xt = self.fm_scheduler.step(xt, vt, dt)  # TODO: perform Euler step
             # TODO: update xt
             ######################
 
