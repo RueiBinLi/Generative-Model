@@ -83,22 +83,19 @@ class SimpleNet(nn.Module):
 
         ######## TODO ########
         # DO NOT change the code outside this part.
-        time_embed_dim = dim_hids[0] # get time_emb
-        self.MLP = nn.Sequential(
-            TimeEmbedding(hidden_size=time_embed_dim),
-            nn.Linear(time_embed_dim, time_embed_dim),
-            nn.ReLU(),
-        )
-
-        layers = []
-        current_dim = dim_in + time_embed_dim
-        for dim_hid in dim_hids:
-            layers.append(nn.Linear(current_dim, dim_hid))
-            layers.append(nn.ReLU())
-            current_dim = dim_hid
-        layers.append(nn.Linear(current_dim, dim_out))
+        dims = [dim_in] + dim_hids
         
-        self.main_net = nn.Sequential(*layers)
+        # We use ModuleList to store our time-conditional layers
+        self.layers = nn.ModuleList()
+        
+        # Build the network
+        for i in range(len(dims) - 1):
+            # Each layer is a TimeLinear layer followed by an activation
+            self.layers.append(TimeLinear(dims[i], dims[i+1], num_timesteps))
+            self.layers.append(nn.SiLU())
+            
+        # The final layer is a standard Linear layer
+        self.final_layer = nn.Linear(dims[-1], dim_out)
         ######################
         
     def forward(self, x: torch.Tensor, t: torch.Tensor):
@@ -112,8 +109,15 @@ class SimpleNet(nn.Module):
         """
         ######## TODO ########
         # DO NOT change the code outside this part.
-        time_emb = self.MLP(t)
-        x_t = torch.cat((x, time_emb), dim=-1)
-        x = self.main_net(x_t)
+        for layer in self.layers:
+            if isinstance(layer, TimeLinear):
+                # Pass both x and t to TimeLinear layers
+                x = layer(x, t)
+            else:
+                # Pass only x to activation layers (e.g., SiLU)
+                x = layer(x)
+                
+        # Get the final output
+        x = self.final_layer(x)
         ######################
         return x
