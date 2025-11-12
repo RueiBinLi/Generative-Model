@@ -68,60 +68,46 @@ def main(args):
         # Hint: Set return_traj=True to get the full trajectory if needed.
 
         # Sample initial noise
-        shape = (B, 3, fm.image_resolution, fm.image_resolution)
-        x_0 = torch.randn(shape).to(device)
+        with torch.no_grad():
+            shape = (B, 3, fm.image_resolution, fm.image_resolution)
+            x_0 = torch.randn(shape).to(device)
 
-        # Sample class labels if using CFG
-        if args.use_cfg:
-            # Sample labels from 1 to num_classes-1 (skip null class 0)
-            labels = torch.randint(1, num_classes, (B,)).to(device)
-        else:
-            labels = None
-
-        num_steps = args.num_inference_steps
-        d_t = 1.0 / num_steps
-        guidance_scale = args.cfg_scale if args.use_cfg else 1.0
-        do_cfg = args.use_cfg and guidance_scale > 1.0
-
-        x_t = x_0
-
-        for i in range(num_steps):
-            t_val = i / num_steps
-            t = torch.full((B,), t_val, device=device, dtype=torch.float32)
-
-            if do_cfg:
-                v_uncond = fm.network(x_t, t, class_label=None)
-                v_cond = fm.network(x_t, t, class_label=labels)
-                v_t = v_uncond + guidance_scale * (v_cond - v_uncond)
-            else:
-                v_t = fm.network(x_t, t)
-
-            x_t = fm.fm_scheduler.step(x_t, v_t, d_t)
-
-        # Generate z_1 by simulating the learned flow
-        # TODO: Complete this section
-        # Use fm.sample() or manually implement the ODE integration
-        # to generate z_1 from x_0
-
-        z_1 = x_t  # Replace this with actual generation
-
-        ######################
-
-        # Save the pairs to disk
-        for j in range(B):
-            sample_idx = sidx + j
-
-            # Save as .pt files for efficient loading
-            torch.save(x_0[j].cpu(), save_dir / f"{sample_idx:06d}_x0.pt")
-            torch.save(z_1[j].cpu(), save_dir / f"{sample_idx:06d}_z1.pt")
-
+            # Sample class labels if using CFG
             if args.use_cfg:
-                torch.save(labels[j].cpu(), save_dir / f"{sample_idx:06d}_label.pt")
+                # Sample labels from 1 to num_classes-1 (skip null class 0)
+                labels = torch.randint(1, num_classes, (B,)).to(device)
+            else:
+                labels = None
 
-            # Optionally save as images for visualization
-            if args.save_images and sample_idx < 100:  # Save first 100 as images
-                img_z1 = tensor_to_pil_image(z_1[j].cpu(), single_image=True)
-                img_z1.save(save_dir / f"{sample_idx:06d}_z1.png")
+            # Generate z_1 by simulating the learned flow
+            # TODO: Complete this section
+            # Use fm.sample() or manually implement the ODE integration
+            # to generate z_1 from x_0
+
+            z_1 = fm.sample(
+                shape=shape,
+                num_inference_timesteps=args.num_inference_steps,
+                class_label=labels,
+                guidance_scale=args.cfg_scale if args.use_cfg else 1.0,
+            )  # Replace this with actual generation
+
+            ######################
+
+            # Save the pairs to disk
+            for j in range(B):
+                sample_idx = sidx + j
+
+                # Save as .pt files for efficient loading
+                torch.save(x_0[j].cpu(), save_dir / f"{sample_idx:06d}_x0.pt")
+                torch.save(z_1[j].cpu(), save_dir / f"{sample_idx:06d}_z1.pt")
+
+                if args.use_cfg:
+                    torch.save(labels[j].cpu(), save_dir / f"{sample_idx:06d}_label.pt")
+
+                # Optionally save as images for visualization
+                if args.save_images and sample_idx < 100:  # Save first 100 as images
+                    img_z1 = tensor_to_pil_image(z_1[j].cpu(), single_image=True)
+                    img_z1.save(save_dir / f"{sample_idx:06d}_z1.png")
 
     print(f"Reflow dataset saved to {save_dir}")
     print(f"Total samples: {total_num_samples}")
