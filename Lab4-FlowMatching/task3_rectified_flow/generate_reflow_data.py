@@ -78,12 +78,32 @@ def main(args):
         else:
             labels = None
 
+        num_steps = args.num_inference_steps
+        d_t = 1.0 / num_steps
+        guidance_scale = args.cfg_scale if args.use_cfg else 1.0
+        do_cfg = args.use_cfg and guidance_scale > 1.0
+
+        x_t = x_0
+
+        for i in range(num_steps):
+            t_val = i / num_steps
+            t = torch.full((B,), t_val, device=device, dtype=torch.float32)
+
+            if do_cfg:
+                v_uncond = fm.network(x_t, t, class_label=None)
+                v_cond = fm.network(x_t, t, class_label=labels)
+                v_t = v_uncond + guidance_scale * (v_cond - v_uncond)
+            else:
+                v_t = fm.network(x_t, t)
+
+            x_t = fm.fm_scheduler.step(x_t, v_t, d_t)
+
         # Generate z_1 by simulating the learned flow
         # TODO: Complete this section
         # Use fm.sample() or manually implement the ODE integration
         # to generate z_1 from x_0
 
-        z_1 = x_0  # Replace this with actual generation
+        z_1 = x_t  # Replace this with actual generation
 
         ######################
 
