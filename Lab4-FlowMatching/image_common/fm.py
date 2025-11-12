@@ -210,11 +210,11 @@ class FlowMatching(nn.Module):
             dt = t_next - t  # TODO: compute time step size
             dt = expand_t(dt, xt)
             if do_classifier_free_guidance:
-                v_uncond = self.network(xt, t_next, class_label=None)
-                v_cond = self.network(xt, t_next, class_label=class_label)
+                v_uncond = self.network(xt, t, class_label=None)
+                v_cond = self.network(xt, t, class_label=class_label)
                 vt = v_uncond + guidance_scale * (v_cond - v_uncond)  # TODO: predict velocity (with or without CFG)
             else:
-                vt = self.network(xt, t_next, class_label=class_label)
+                vt = self.network(xt, t)
             xt = self.fm_scheduler.step(xt, vt, dt)  # TODO: perform Euler step
             # TODO: update xt
             ######################
